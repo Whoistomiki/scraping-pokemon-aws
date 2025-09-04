@@ -1,6 +1,10 @@
 import requests
 import os
 import time
+import boto3
+
+s3_client = boto3.client('s3')
+bucket_name = 'test-poke-img'  
 
 def setup_session():
     session = requests.Session()
@@ -23,6 +27,20 @@ def download_image(url, file_path, session):
         return False
     except Exception as e:
         print(f"Erreur lors du téléchargement de {url}: {str(e)}")
+        return False
+
+def upload_to_s3(file_path, bucket_name, s3_key):
+    try:
+        s3_client.upload_file(
+            file_path, 
+            bucket_name, 
+            s3_key,
+            ExtraArgs={'ContentType': 'image/png'}
+        )
+        print(f"✅ Upload réussi : {s3_key}")
+        return True
+    except Exception as e:
+        print(f"❌ Erreur upload S3 : Failed to upload {file_path} to {bucket_name}/{s3_key}: {e}")
         return False
 
 def get_last_processed_index():
@@ -83,6 +101,12 @@ def main():
                             batch_count += 1
                             pokemon_count += 1
                             print(f"Image téléchargée ({batch_count}/{len(current_batch)}): {file_name}")
+                            
+                            # Upload sur S3
+                            s3_key = f"images/pokemon/{file_name}"
+                            if upload_to_s3(file_path, bucket_name, s3_key):
+                                os.remove(file_path)
+                            
                             time.sleep(0.5)
                     else:
                         print(f"L'image existe déjà: {file_name}")
